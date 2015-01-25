@@ -23,6 +23,7 @@ However, a query for `subdomain.example.com` will go to `8.8.4.4:53`.
 
 TODO(StalkR): Debian package. Until then:
 
+    $ go get github.com/StalkR/dns-reverse-proxy
     $ cd /usr/bin
     $ go build github.com/StalkR/dns-reverse-proxy
     $ cd /etc/init.d
