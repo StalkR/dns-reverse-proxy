@@ -33,7 +33,7 @@ TODO(StalkR): Debian package. Until then:
 
 Configure by editing `/etc/default/dns-reverse-proxy`. Example:
 
-    DAEMON_ARGS="-default 127.0.0.1:1053 -route .example.com.=8.8.4.4:53 -allow-transfer 1.2.3.4,5.6.7.8"
+    DAEMON_ARGS="-default 8.8.8.8:53 -route .example.com.=8.8.4.4:53 -allow-transfer 1.2.3.4,5.6.7.8"
 
 And start:
 
