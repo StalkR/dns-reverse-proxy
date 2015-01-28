@@ -1,6 +1,6 @@
 # DNS reverse proxy #
 
-[![Build Status](https://api.travis-ci.org/StalkR/dns-reverse-proxy.png)](https://travis-ci.org/StalkR/dns-reverse-proxy) [![Godoc](https://godoc.org/github.com/StalkR/dns-reverse-proxy?status.png)](https://godoc.org/github.com/StalkR/dns-reverse-proxy)
+[![Build Status](https://api.travis-ci.org/StalkR/dns-reverse-proxy.png?branch=master)](https://travis-ci.org/StalkR/dns-reverse-proxy) [![Godoc](https://godoc.org/github.com/StalkR/dns-reverse-proxy?status.png)](https://godoc.org/github.com/StalkR/dns-reverse-proxy)
 
 A DNS reverse proxy to route queries to different DNS servers.
 To illustrate, imagine an HTTP reverse proxy but for DNS.
