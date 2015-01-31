@@ -19,25 +19,27 @@ Example:
 A query for `example.net` or `example.com` will go to `8.8.8.8:53`, the default.
 However, a query for `subdomain.example.com` will go to `8.8.4.4:53`.
 
-# Setup (Debian flavor) #
+# Setup #
 
-TODO(StalkR): Debian package. Until then:
+Install go package, create Debian package, install:
 
-    $ go get github.com/StalkR/dns-reverse-proxy
-    $ cd /usr/bin
-    $ go build github.com/StalkR/dns-reverse-proxy
-    $ cd /etc/init.d
-    $ wget https://github.com/StalkR/dns-reverse-proxy/raw/master/etc/init.d/dns-reverse-proxy
-    $ chmod +x /etc/init.d/dns-reverse-proxy
-    $ insserv dns-reverse-proxy
+    $ go get -u github.com/StalkR/dns-reverse-proxy
+    $ cd $GOPATH/src/github.com/StalkR/dns-reverse-proxy
+    $ fakeroot debian/rules clean binary
+    $ sudo dpkg -i ../dns-reverse-proxy_1.0-1_amd64.deb
 
-Configure by editing `/etc/default/dns-reverse-proxy`. Example:
+Configure in `/etc/default/dns-reverse-proxy` and start with `/etc/init.d/dns-reverse-proxy start`.
 
-    DAEMON_ARGS="-default 8.8.8.8:53 -route .example.com.=8.8.4.4:53 -allow-transfer 1.2.3.4,5.6.7.8"
-
-And start:
-
-    invoke-rc.d dns-reverse-proxy start
+<!--
+Alternatively with debuild:
+  rm -f ../dns-reverse-proxy_*
+Build unsigned:
+  debuild --preserve-envvar PATH --preserve-envvar GOPATH -us -uc
+Build with signed dsc and changes:
+  debuild --preserve-envvar PATH --preserve-envvar GOPATH
+Debuild asks for the orig tarball, you can proceed (y) or create it with:
+  tar zcf ../dns-reverse-proxy_1.0.orig.tar.gz --exclude debian --exclude .git --exclude .gitignore .
+-->
 
 # License #
 

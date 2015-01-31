@@ -1,0 +1,6 @@
+# Arguments:
+#  -address <:port>             default to :53
+#  -default <ip:port>           required
+#  -route <prefix=ip:port>,...  default empty
+#  -allow-transfer <ip>,...     default empty
+DAEMON_ARGS=""

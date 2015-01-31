@@ -1,0 +1,14 @@
+Source: dns-reverse-proxy
+Section: net
+Priority: extra
+Maintainer: StalkR <stalkr@stalkr.net>
+Build-Depends: debhelper (>= 8.0.0)
+Standards-Version: 3.9.3
+Homepage: https://github.com/StalkR/dns-reverse-proxy
+
+Package: dns-reverse-proxy
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: DNS reverse proxy
+ A DNS reverse proxy to route queries to different DNS servers.
+ To illustrate, imagine an HTTP reverse proxy but for DNS.

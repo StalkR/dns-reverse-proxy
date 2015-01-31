@@ -1,1 +1,0 @@
-DAEMON_ARGS="-default 8.8.8.8:53 -route .example.com.=8.8.4.4:53 -allow-transfer 1.2.3.4,5.6.7.8"
