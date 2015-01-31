@@ -42,10 +42,10 @@ do_start()
 	#   1 if daemon was already running
 	#   2 if daemon could not be started
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON \
-    --test > /dev/null \
+		--test > /dev/null \
 		|| return 1
 	start-stop-daemon --start --quiet --pidfile $PIDFILE --make-pidfile \
-    --exec $DAEMON --background -- $DAEMON_ARGS \
+		--exec $DAEMON --background -- $DAEMON_ARGS \
 		|| return 2
 	# Add code here, if necessary, that waits for the process to be ready
 	# to handle requests from services started subsequently which depend
@@ -63,7 +63,7 @@ do_stop()
 	#   2 if daemon could not be stopped
 	#   other if a failure occurred
 	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE \
-    --exec $DAEMON
+		--exec $DAEMON
 	RETVAL="$?"
 	[ "$RETVAL" = 2 ] && return 2
 	# Wait for children to finish too if this is a daemon that forks
