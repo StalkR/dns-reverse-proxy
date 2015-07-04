@@ -10,7 +10,7 @@ Example usage:
         $ go run dns_reverse_proxy.go -address :53 \
                 -default 8.8.8.8:53 \
                 -route .example.com.=8.8.4.4:53 \
-                -allow-transfer 1.2.3.4,5.6.7.8
+                -allow-transfer 1.2.3.4,::1
 
 A query for example.net or example.com will go to 8.8.8.8:53, the default.
 However, a query for subdomain.example.com will go to 8.8.4.4:53.
@@ -21,6 +21,7 @@ import (
 	"flag"
 	"log"
 	"net"
+	"regexp"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -94,11 +95,22 @@ func isTransfer(req *dns.Msg) bool {
 	return false
 }
 
+var hostRE = regexp.MustCompile(`^\[?([0-9a-f:.]+)\]?:[0-9]+$`)
+
+// extractHost extract host from host:port in IPv4 (1.2.3.4:1234) or IPv6 ([::1]:1234).
+func extractHost(remoteAddr string) string {
+	m := hostRE.FindStringSubmatch(remoteAddr)
+	if m == nil {
+		return ""
+	}
+	return m[1]
+}
+
 func allowed(w dns.ResponseWriter, req *dns.Msg) bool {
 	if !isTransfer(req) {
 		return true
 	}
-	remote := strings.SplitN(w.RemoteAddr().String(), ":", 2)[0]
+	remote := extractHost(w.RemoteAddr().String())
 	for _, ip := range transferIPs {
 		if ip == remote {
 			return true

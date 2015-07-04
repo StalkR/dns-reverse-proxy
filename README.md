@@ -14,7 +14,7 @@ Example:
     $ go run dns_reverse_proxy.go -address :53 \
         -default 8.8.8.8:53 \
         -route .example.com.=8.8.4.4:53 \
-        -allow-transfer 1.2.3.4,5.6.7.8
+        -allow-transfer 1.2.3.4,::1
 
 A query for `example.net` or `example.com` will go to `8.8.8.8:53`, the default.
 However, a query for `subdomain.example.com` will go to `8.8.4.4:53`.
@@ -26,7 +26,7 @@ Install go package, create Debian package, install:
     $ go get -u github.com/StalkR/dns-reverse-proxy
     $ cd $GOPATH/src/github.com/StalkR/dns-reverse-proxy
     $ fakeroot debian/rules clean binary
-    $ sudo dpkg -i ../dns-reverse-proxy_1.0-1_amd64.deb
+    $ sudo dpkg -i ../dns-reverse-proxy_1-1_amd64.deb
 
 Configure in `/etc/default/dns-reverse-proxy` and start with `/etc/init.d/dns-reverse-proxy start`.
 
@@ -38,7 +38,7 @@ Build unsigned:
 Build with signed dsc and changes:
   debuild --preserve-envvar PATH --preserve-envvar GOPATH
 Debuild asks for the orig tarball, you can proceed (y) or create it with:
-  tar zcf ../dns-reverse-proxy_1.0.orig.tar.gz --exclude debian --exclude .git --exclude .gitignore .
+  tar zcf ../dns-reverse-proxy_1.orig.tar.gz --exclude debian --exclude .git --exclude .gitignore .
 -->
 
 # License #

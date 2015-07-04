@@ -1,5 +1,5 @@
-dns-reverse-proxy (1.0-1) unstable; urgency=low
+dns-reverse-proxy (1-1) stable; urgency=high
 
-  * Initial release
+  * No changelog, see git.
 
- -- StalkR <stalkr@stalkr.net>  Sat, 31 Jan 2015 16:16:47 +0100
+ -- StalkR <stalkr@stalkr.net>  Sat, 04 Jul 2015 14:57:03 +0200
