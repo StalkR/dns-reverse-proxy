@@ -23,6 +23,7 @@ However, a query for `subdomain.example.com` will go to `8.8.4.4:53`.
 
 Install go package, create Debian package, install:
 
+    $ go get -u github.com/miekg/dns
     $ go get -u github.com/StalkR/dns-reverse-proxy
     $ cd $GOPATH/src/github.com/StalkR/dns-reverse-proxy
     $ fakeroot debian/rules clean binary
