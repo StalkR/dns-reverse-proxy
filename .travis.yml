@@ -1,13 +1,10 @@
+sudo: false
 language: go
-
-# Travis sees a Makefile and runs it, and fails
-# because it has not installed dependencies yet.
-# The Makefile is for the debian package, so remove it.
-before_install: rm Makefile
 
 install:
   - go get -t -v ./...
   - go build -v ./...
+  - make
 
 script:
   - go test -v ./...
