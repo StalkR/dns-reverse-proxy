@@ -21,7 +21,6 @@ import (
 	"flag"
 	"log"
 	"net"
-	"regexp"
 	"strings"
 
 	"github.com/miekg/dns"
@@ -95,22 +94,11 @@ func isTransfer(req *dns.Msg) bool {
 	return false
 }
 
-var hostRE = regexp.MustCompile(`^\[?([0-9a-f:.]+)\]?:[0-9]+$`)
-
-// extractHost extract host from host:port in IPv4 (1.2.3.4:1234) or IPv6 ([::1]:1234).
-func extractHost(remoteAddr string) string {
-	m := hostRE.FindStringSubmatch(remoteAddr)
-	if m == nil {
-		return ""
-	}
-	return m[1]
-}
-
 func allowed(w dns.ResponseWriter, req *dns.Msg) bool {
 	if !isTransfer(req) {
 		return true
 	}
-	remote := extractHost(w.RemoteAddr().String())
+	remote, _, _ := net.SplitHostPort(w.RemoteAddr().String())
 	for _, ip := range transferIPs {
 		if ip == remote {
 			return true
