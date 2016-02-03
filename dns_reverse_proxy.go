@@ -21,7 +21,10 @@ import (
 	"flag"
 	"log"
 	"net"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/miekg/dns"
 )
@@ -65,9 +68,23 @@ func main() {
 	tcpServer := &dns.Server{Addr: *address, Net: "tcp"}
 	dns.HandleFunc(".", route)
 	go func() {
-		log.Fatal(udpServer.ListenAndServe())
+		if err := udpServer.ListenAndServe(); err != nil {
+			log.Fatal(err)
+		}
 	}()
-	log.Fatal(tcpServer.ListenAndServe())
+	go func() {
+		if err := tcpServer.ListenAndServe(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	// Wait for SIGINT or SIGTERM
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
+
+	udpServer.Shutdown()
+	tcpServer.Shutdown()
 }
 
 func route(w dns.ResponseWriter, req *dns.Msg) {
