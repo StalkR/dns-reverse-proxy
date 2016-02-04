@@ -21,8 +21,10 @@ import (
 	"flag"
 	"log"
 	"net"
-	"regexp"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/miekg/dns"
 )
@@ -66,9 +68,23 @@ func main() {
 	tcpServer := &dns.Server{Addr: *address, Net: "tcp"}
 	dns.HandleFunc(".", route)
 	go func() {
-		log.Fatal(udpServer.ListenAndServe())
+		if err := udpServer.ListenAndServe(); err != nil {
+			log.Fatal(err)
+		}
 	}()
-	log.Fatal(tcpServer.ListenAndServe())
+	go func() {
+		if err := tcpServer.ListenAndServe(); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	// Wait for SIGINT or SIGTERM
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	<-sigs
+
+	udpServer.Shutdown()
+	tcpServer.Shutdown()
 }
 
 func route(w dns.ResponseWriter, req *dns.Msg) {
@@ -95,22 +111,11 @@ func isTransfer(req *dns.Msg) bool {
 	return false
 }
 
-var hostRE = regexp.MustCompile(`^\[?([0-9a-f:.]+)\]?:[0-9]+$`)
-
-// extractHost extract host from host:port in IPv4 (1.2.3.4:1234) or IPv6 ([::1]:1234).
-func extractHost(remoteAddr string) string {
-	m := hostRE.FindStringSubmatch(remoteAddr)
-	if m == nil {
-		return ""
-	}
-	return m[1]
-}
-
 func allowed(w dns.ResponseWriter, req *dns.Msg) bool {
 	if !isTransfer(req) {
 		return true
 	}
-	remote := extractHost(w.RemoteAddr().String())
+	remote, _, _ := net.SplitHostPort(w.RemoteAddr().String())
 	for _, ip := range transferIPs {
 		if ip == remote {
 			return true
