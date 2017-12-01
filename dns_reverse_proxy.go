@@ -33,10 +33,10 @@ var (
 	address = flag.String("address", ":53", "Address to listen to (TCP and UDP)")
 
 	defaultServer = flag.String("default", "",
-		"Default DNS server where to send queries if no route matched (IP:port)")
+		"Default DNS server where to send queries if no route matched (host:port)")
 
 	routeList = flag.String("route", "",
-		"List of routes where to send queries (subdomain=IP:port)")
+		"List of routes where to send queries (domain=host:port)")
 	routes map[string]string
 
 	allowTransfer = flag.String("allow-transfer", "",
@@ -46,16 +46,16 @@ var (
 
 func main() {
 	flag.Parse()
-	if *defaultServer == "" {
-		log.Fatal("-default is required")
+	if !validHostPort(*defaultServer) {
+		log.Fatal("-default is required, must be valid host:port")
 	}
 	transferIPs = strings.Split(*allowTransfer, ",")
 	routes = make(map[string]string)
 	if *routeList != "" {
 		for _, s := range strings.Split(*routeList, ",") {
 			s := strings.SplitN(s, "=", 2)
-			if len(s) != 2 {
-				log.Fatal("invalid -routes format")
+			if len(s) != 2 || !validHostPort(s[1]) {
+				log.Fatal("invalid -route, must be list of domain=host:port")
 			}
 			if !strings.HasSuffix(s[0], ".") {
 				s[0] += "."
@@ -85,6 +85,14 @@ func main() {
 
 	udpServer.Shutdown()
 	tcpServer.Shutdown()
+}
+
+func validHostPort(s string) bool {
+	host, port, err := net.SplitHostPort(s)
+	if err != nil || host == "" || port == "" {
+		return false
+	}
+	return true
 }
 
 func route(w dns.ResponseWriter, req *dns.Msg) {
