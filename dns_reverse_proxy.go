@@ -46,9 +46,7 @@ var (
 
 func main() {
 	flag.Parse()
-	if !validHostPort(*defaultServer) {
-		log.Fatal("-default is required, must be valid host:port")
-	}
+
 	transferIPs = strings.Split(*allowTransfer, ",")
 	routes = make(map[string]string)
 	if *routeList != "" {
@@ -106,7 +104,12 @@ func route(w dns.ResponseWriter, req *dns.Msg) {
 			return
 		}
 	}
-	proxy(*defaultServer, w, req)
+
+	if *defaultServer == "" {
+		dns.HandleFailed(w, req)
+	} else {
+		proxy(*defaultServer, w, req)
+	}
 }
 
 func isTransfer(req *dns.Msg) bool {
