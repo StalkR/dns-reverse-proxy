@@ -109,9 +109,10 @@ func route(w dns.ResponseWriter, req *dns.Msg) {
 
 	if *defaultServer == "" {
 		dns.HandleFailed(w, req)
-	} else {
-		proxy(*defaultServer, w, req)
+		return
 	}
+
+	proxy(*defaultServer, w, req)
 }
 
 func isTransfer(req *dns.Msg) bool {
