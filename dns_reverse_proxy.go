@@ -13,7 +13,9 @@ Example usage:
                 -allow-transfer 1.2.3.4,::1
 
 A query for example.net or example.com will go to 8.8.8.8:53, the default.
-However, a query for subdomain.example.com will go to 8.8.4.4:53.
+However, a query for subdomain.example.com will go to 8.8.4.4:53. -default
+is optional - if it is not given then the server will return a failure for
+queries for domains where a route has not been given.
 */
 package main
 
@@ -46,9 +48,7 @@ var (
 
 func main() {
 	flag.Parse()
-	if !validHostPort(*defaultServer) {
-		log.Fatal("-default is required, must be valid host:port")
-	}
+
 	transferIPs = strings.Split(*allowTransfer, ",")
 	routes = make(map[string]string)
 	if *routeList != "" {
@@ -106,6 +106,12 @@ func route(w dns.ResponseWriter, req *dns.Msg) {
 			return
 		}
 	}
+
+	if *defaultServer == "" {
+		dns.HandleFailed(w, req)
+		return
+	}
+
 	proxy(*defaultServer, w, req)
 }
 
