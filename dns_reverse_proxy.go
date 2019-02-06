@@ -10,6 +10,7 @@ Example usage:
         $ go run dns_reverse_proxy.go -address :53 \
                 -default 8.8.8.8:53 \
                 -route .example.com.=8.8.4.4:53 \
+                -route .example2.com.=8.8.4.4:53,1.1.1.1:53 \
                 -allow-transfer 1.2.3.4,::1
 
 A query for example.net or example.com will go to 8.8.8.8:53, the default.
@@ -21,15 +22,29 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/miekg/dns"
 )
+
+type stringArrayFlags []string
+
+func (i *stringArrayFlags) String() string {
+	return fmt.Sprint(*i)
+}
+
+func (i *stringArrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
 
 var (
 	address = flag.String("address", ":53", "Address to listen to (TCP and UDP)")
@@ -37,31 +52,40 @@ var (
 	defaultServer = flag.String("default", "",
 		"Default DNS server where to send queries if no route matched (host:port)")
 
-	routeList = flag.String("route", "",
-		"List of routes where to send queries (domain=host:port)")
-	routes map[string]string
+	routeLists stringArrayFlags
+	routes     map[string][]string
 
 	allowTransfer = flag.String("allow-transfer", "",
 		"List of IPs allowed to transfer (AXFR/IXFR)")
 	transferIPs []string
 )
 
+func init() {
+	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator for random backend pickup
+}
+
 func main() {
+	flag.Var(&routeLists, "route", "List of routes where to send queries (domain=host:port,[host:port,...])")
 	flag.Parse()
 
 	transferIPs = strings.Split(*allowTransfer, ",")
-	routes = make(map[string]string)
-	if *routeList != "" {
-		for _, s := range strings.Split(*routeList, ",") {
-			s := strings.SplitN(s, "=", 2)
-			if len(s) != 2 || !validHostPort(s[1]) {
-				log.Fatal("invalid -route, must be list of domain=host:port")
-			}
-			if !strings.HasSuffix(s[0], ".") {
-				s[0] += "."
-			}
-			routes[s[0]] = s[1]
+	routes = make(map[string][]string)
+	for _, routeList := range routeLists {
+		s := strings.SplitN(routeList, "=", 2)
+		if len(s) != 2 || len(s[0]) == 0 || len(s[1]) == 0 {
+			log.Fatal("invalid -route, must be domain=host:port,[host:port,...]")
 		}
+		var backends []string
+		for _, backend := range strings.Split(s[1], ",") {
+			if !validHostPort(backend) {
+				log.Fatalf("invalid host:port for %v", backend)
+			}
+			backends = append(backends, backend)
+		}
+		if !strings.HasSuffix(s[0], ".") {
+			s[0] += "."
+		}
+		routes[s[0]] = backends
 	}
 
 	udpServer := &dns.Server{Addr: *address, Net: "udp"}
@@ -100,8 +124,12 @@ func route(w dns.ResponseWriter, req *dns.Msg) {
 		dns.HandleFailed(w, req)
 		return
 	}
-	for name, addr := range routes {
+	for name, addrs := range routes {
 		if strings.HasSuffix(req.Question[0].Name, name) {
+			addr := addrs[0]
+			if n := len(addrs); n > 1 {
+				addr = addrs[rand.Intn(n)]
+			}
 			proxy(addr, w, req)
 			return
 		}
