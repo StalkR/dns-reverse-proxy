@@ -35,13 +35,13 @@ import (
 	"github.com/miekg/dns"
 )
 
-type stringArrayFlags []string
+type flagStringList []string
 
-func (i *stringArrayFlags) String() string {
+func (i *flagStringList) String() string {
 	return fmt.Sprint(*i)
 }
 
-func (i *stringArrayFlags) Set(value string) error {
+func (i *flagStringList) Set(value string) error {
 	*i = append(*i, value)
 	return nil
 }
@@ -52,7 +52,7 @@ var (
 	defaultServer = flag.String("default", "",
 		"Default DNS server where to send queries if no route matched (host:port)")
 
-	routeLists stringArrayFlags
+	routeLists flagStringList
 	routes     map[string][]string
 
 	allowTransfer = flag.String("allow-transfer", "",
@@ -61,11 +61,11 @@ var (
 )
 
 func init() {
-	rand.Seed(time.Now().Unix()) // initialize global pseudo random generator for random backend pickup
+	rand.Seed(time.Now().Unix())
+	flag.Var(&routeLists, "route", "List of routes where to send queries (domain=host:port,[host:port,...])")
 }
 
 func main() {
-	flag.Var(&routeLists, "route", "List of routes where to send queries (domain=host:port,[host:port,...])")
 	flag.Parse()
 
 	transferIPs = strings.Split(*allowTransfer, ",")
