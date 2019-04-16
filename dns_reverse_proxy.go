@@ -85,7 +85,7 @@ func main() {
 		if !strings.HasSuffix(s[0], ".") {
 			s[0] += "."
 		}
-		routes[s[0]] = backends
+		routes[strings.ToLower(s[0])] = backends
 	}
 
 	udpServer := &dns.Server{Addr: *address, Net: "udp"}
@@ -124,8 +124,10 @@ func route(w dns.ResponseWriter, req *dns.Msg) {
 		dns.HandleFailed(w, req)
 		return
 	}
+
+	lcName := strings.ToLower(req.Question[0].Name)
 	for name, addrs := range routes {
-		if strings.HasSuffix(req.Question[0].Name, name) {
+		if strings.HasSuffix(lcName, name) {
 			addr := addrs[0]
 			if n := len(addrs); n > 1 {
 				addr = addrs[rand.Intn(n)]
