@@ -82,10 +82,10 @@ func main() {
 			}
 			backends = append(backends, backend)
 		}
-		if !strings.HasSuffix(strings.ToLower(s[0]), ".") {
+		if !strings.HasSuffix(s[0], ".") {
 			s[0] += "."
 		}
-		routes[s[0]] = backends
+		routes[strings.ToLower(s[0])] = backends
 	}
 
 	udpServer := &dns.Server{Addr: *address, Net: "udp"}
