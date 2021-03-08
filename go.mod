@@ -3,8 +3,8 @@ module github.com/StalkR/dns-reverse-proxy
 go 1.15
 
 require (
-	github.com/miekg/dns v1.1.31
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
-	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
-	golang.org/x/sys v0.0.0-20200918174421-af09f7315aff // indirect
+	github.com/miekg/dns v1.1.35
+	golang.org/x/crypto v0.0.0-20201124201722-c8d3bf9c5392 // indirect
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
+	golang.org/x/sys v0.0.0-20201119102817-f84b799fce68 // indirect
 )

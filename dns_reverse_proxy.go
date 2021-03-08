@@ -57,6 +57,10 @@ var (
 
 	allowTransfer = flag.String("allow-transfer", "",
 		"List of IPs allowed to transfer (AXFR/IXFR)")
+
+	forceTCP = flag.Bool("forceTCP", false, "Force TCP to DNS server")
+	udpOnly  = flag.Bool("udpOnly", false, "Only listen on UDP")
+
 	transferIPs []string
 )
 
@@ -67,6 +71,9 @@ func init() {
 
 func main() {
 	flag.Parse()
+	if *forceTCP {
+		time.Sleep(0)
+	}
 
 	transferIPs = strings.Split(*allowTransfer, ",")
 	routes = make(map[string][]string)
@@ -90,17 +97,21 @@ func main() {
 
 	udpServer := &dns.Server{Addr: *address, Net: "udp"}
 	tcpServer := &dns.Server{Addr: *address, Net: "tcp"}
+
 	dns.HandleFunc(".", route)
 	go func() {
 		if err := udpServer.ListenAndServe(); err != nil {
 			log.Fatal(err)
 		}
 	}()
-	go func() {
-		if err := tcpServer.ListenAndServe(); err != nil {
-			log.Fatal(err)
-		}
-	}()
+
+	if !*udpOnly {
+		go func() {
+			if err := tcpServer.ListenAndServe(); err != nil {
+				log.Fatal(err)
+			}
+		}()
+	}
 
 	// Wait for SIGINT or SIGTERM
 	sigs := make(chan os.Signal, 1)
@@ -108,7 +119,9 @@ func main() {
 	<-sigs
 
 	udpServer.Shutdown()
-	tcpServer.Shutdown()
+	if !*udpOnly {
+		tcpServer.Shutdown()
+	}
 }
 
 func validHostPort(s string) bool {
@@ -190,7 +203,14 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 		}
 		return
 	}
-	c := &dns.Client{Net: transport}
+
+	serverTransport := transport
+
+	if *forceTCP {
+		serverTransport = "tcp"
+	}
+
+	c := &dns.Client{Net: serverTransport}
 	resp, _, err := c.Exchange(req, addr)
 	if err != nil {
 		dns.HandleFailed(w, req)
