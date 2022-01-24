@@ -196,5 +196,17 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 		dns.HandleFailed(w, req)
 		return
 	}
+
 	w.WriteMsg(resp)
+	logRet(addr, req, resp)
+}
+
+func logRet(addr string, req *dns.Msg, resp *dns.Msg) {
+	quest := req.Question[0]
+	fmt.Println("x--------------------------------------------------------")
+	fmt.Println(time.Now().Format(time.RFC3339), addr)
+	fmt.Println(quest.String())
+	fmt.Println(resp.String())
+	//fmt.Println("name: ", quest.Name, "type:", quest.Qtype, "str:", quest.String())
+
 }
