@@ -93,7 +93,7 @@ func main() {
 		}
 		routes[strings.ToLower(s[0])] = backends
 	}
-	log.Println(routes)
+	//log.Println(routes)
 
 	udpServer := &dns.Server{Addr: *address, Net: "udp"}
 	tcpServer := &dns.Server{Addr: *address, Net: "tcp"}
@@ -119,7 +119,7 @@ func main() {
 	tcpServer.Shutdown()
 }
 
-func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) {
+func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	q := req.Question[0]
 	lcName := strings.ToLower(q.Name)
 	fmt.Println("lcName", lcName, q.Qtype)
@@ -147,7 +147,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) {
 
 		for _, a := range ans{
 			r := new(dns.A)
-			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 66}
+			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: q.Qtype, Class: dns.ClassINET}
 			r.A = net.ParseIP(a.IP4)
 			answers = append(answers, r)
 		}
@@ -160,7 +160,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) {
 
 		for _, a := range ans{
 			r := new(dns.AAAA)
-			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: 66}
+			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: q.Qtype, Class: dns.ClassINET}
 			r.AAAA = net.ParseIP(a.IP6)
 			answers = append(answers, r)
 		}
@@ -173,7 +173,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) {
 
 		for _, a := range ans{
 			r := new(dns.CNAME)
-			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: 66}
+			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: q.Qtype, Class: dns.ClassINET}
 			cname := a.CNAME
 			if !strings.HasSuffix(cname, "."){
 				cname = cname + "."
@@ -205,6 +205,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) {
 	if err != nil {
 		log.Printf("Error writing msg %s\n", err)
 	}
+	return m
 }
 
 func route(w dns.ResponseWriter, req *dns.Msg) {
@@ -278,24 +279,42 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 		}
 		return
 	}
-
-	log.Println(addr)
+	var resp *dns.Msg
 	if strings.HasPrefix(addr, "https://") {
 		addr = strings.Replace(addr, "https://", "", 1)
-		lookupDoH(addr, w, req)
-		return
-	}
-
-	c := &dns.Client{Net: transport}
-	resp, _, err := c.Exchange(req, addr)
-	if err != nil {
-		dns.HandleFailed(w, req)
-		return
+		resp = lookupDoH(addr, w, req)
+	}else{
+		c := &dns.Client{Net: transport}
+		var _ time.Duration
+		var err error
+		resp, _, err = c.Exchange(req, addr)
+		if err != nil {
+			dns.HandleFailed(w, req)
+			return
+		}
 	}
 
 	w.WriteMsg(resp)
-	logRet(addr, req, resp)
-	logPDNS(addr, req, resp)
+	//logRet(addr, req, resp)
+	//logPDNS(addr, req, resp, w)
+	go func() {
+
+		for _,r := range resp.Answer{
+			p := new(pdnsLog)
+
+			q := req.Question[0]
+			lcName := strings.ToLower(q.Name)
+
+			p.dnsClient = w.RemoteAddr().String()
+			p.timestamp = fmt.Sprintf("%f", float64(time.Now().UnixMicro()) / float64(1e6))
+			p.dnsServer = addr
+			p.query = lcName
+			p.queryType = dns.Type(q.Qtype).String()
+			p.ttl = fmt.Sprintf("%d", r.Header().Ttl)
+
+			fmt.Println(p.String())
+		}
+	}()
 }
 
 // passivedns style log
@@ -303,26 +322,40 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 // #timestamp||dns-client ||dns-server||RR class||Query||Query Type||Answer||TTL||Count
 // 1322849924.408856||10.1.1.1||8.8.8.8||IN||upload.youtube.com.||A||74.125.43.117||46587||5
 type pdnsLog struct {
-	timestamp float64
+	timestamp string
 	dnsClient string
 	dnsServer string
 	rrClass   string
 	query     string
 	queryType string
 	answer    string
-	ttl       uint
-	count     uint
+	ttl       string
+	count     string
 }
+//var pdnsLogKeys = []string{"timestamp", "dnsClient", "dnsServer", "rrClass", "query", "queryType", "answer", "ttl", "count"}
 
 func (p *pdnsLog) String() string {
-	return ""
+	arr := []string{
+		p.timestamp,
+		p.dnsClient,
+		p.dnsServer,
+		p.rrClass,
+		p.query,
+		p.queryType,
+		p.answer,
+		p.ttl,
+		p.count,
+	}
+	log := strings.Join(arr, "||")
+	return log
 }
 
-func logPDNS(addr string, req *dns.Msg, resp *dns.Msg) {
-	log := pdnsLog{
-		timestamp: float64(time.Now().UnixMilli()),
-	}
-	fmt.Println(log.String())
+func logPDNS(addr string, req *dns.Msg, resp *dns.Msg, w dns.ResponseWriter) {
+	p := new(pdnsLog)
+	p.dnsClient = w.RemoteAddr().String()
+	p.timestamp = fmt.Sprintf("%f", float64(time.Now().UnixMicro()) / float64(1e6))
+	p.dnsServer = addr
+	fmt.Println(p.String())
 }
 
 func logRet(addr string, req *dns.Msg, resp *dns.Msg) {
