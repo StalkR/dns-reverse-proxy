@@ -7,11 +7,12 @@ Since the upstream servers will not see the real client IPs but the proxy,
 you can specify a list of IPs allowed to transfer (AXFR/IXFR).
 
 Example usage:
-        $ go run dns_reverse_proxy.go -address :53 \
-                -default 8.8.8.8:53 \
-                -route .example.com.=8.8.4.4:53 \
-                -route .example2.com.=8.8.4.4:53,1.1.1.1:53 \
-                -allow-transfer 1.2.3.4,::1
+$ go run dns_reverse_proxy.go -address :53 \
+-default 8.8.8.8:53 \
+-route .example.com.=8.8.4.4:53 \
+-route .example2.com.=8.8.4.4:53,1.1.1.1:53 \
+-route .example3.com.=https://dns.alidns.com \
+-allow-transfer 1.2.3.4,::1
 
 A query for example.net or example.com will go to 8.8.8.8:53, the default.
 However, a query for subdomain.example.com will go to 8.8.4.4:53. -default
@@ -32,6 +33,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/babolivier/go-doh-client"
+
 	"github.com/miekg/dns"
 )
 
@@ -50,13 +53,13 @@ var (
 	address = flag.String("address", ":53", "Address to listen to (TCP and UDP)")
 
 	defaultServer = flag.String("default", "",
-		"Default DNS server where to send queries if no route matched (host:port)")
+	"Default DNS server where to send queries if no route matched (host:port)")
 
 	routeLists flagStringList
 	routes     map[string][]string
 
 	allowTransfer = flag.String("allow-transfer", "",
-		"List of IPs allowed to transfer (AXFR/IXFR)")
+	"List of IPs allowed to transfer (AXFR/IXFR)")
 	transferIPs []string
 )
 
@@ -77,9 +80,12 @@ func main() {
 		}
 		var backends []string
 		for _, backend := range strings.Split(s[1], ",") {
-			if !validHostPort(backend) {
+			host, port, err := net.SplitHostPort(backend)
+
+			if err != nil || host == "" || port == "" {
 				log.Fatalf("invalid host:port for %v", backend)
 			}
+
 			backends = append(backends, backend)
 		}
 		if !strings.HasSuffix(s[0], ".") {
@@ -87,10 +93,12 @@ func main() {
 		}
 		routes[strings.ToLower(s[0])] = backends
 	}
+	log.Println(routes)
 
 	udpServer := &dns.Server{Addr: *address, Net: "udp"}
 	tcpServer := &dns.Server{Addr: *address, Net: "tcp"}
 	dns.HandleFunc(".", route)
+	//dns.HandleFunc(".", routeDoH)
 	go func() {
 		if err := udpServer.ListenAndServe(); err != nil {
 			log.Fatal(err)
@@ -111,12 +119,92 @@ func main() {
 	tcpServer.Shutdown()
 }
 
-func validHostPort(s string) bool {
-	host, port, err := net.SplitHostPort(s)
-	if err != nil || host == "" || port == "" {
-		return false
+func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) {
+	q := req.Question[0]
+	lcName := strings.ToLower(q.Name)
+	fmt.Println("lcName", lcName, q.Qtype)
+	domain := strings.TrimSuffix(lcName, ".")
+
+	resolver := doh.Resolver{
+		Host: addr,
+		Class: doh.IN,
 	}
-	return true
+
+	m := new(dns.Msg)
+	m.SetReply(req)
+	m.RecursionAvailable = false
+	m.Authoritative = true
+
+	var answers []dns.RR
+
+	switch q.Qtype {
+	case dns.TypeA:
+		ans, _, err := resolver.LookupA(domain)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+
+		for _, a := range ans{
+			r := new(dns.A)
+			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 66}
+			r.A = net.ParseIP(a.IP4)
+			answers = append(answers, r)
+		}
+	case dns.TypeAAAA:
+		ans, _, err := resolver.LookupAAAA(domain)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+
+		for _, a := range ans{
+			r := new(dns.AAAA)
+			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: 66}
+			r.AAAA = net.ParseIP(a.IP6)
+			answers = append(answers, r)
+		}
+	case dns.TypeCNAME:
+		ans, _, err := resolver.LookupCNAME(domain)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+
+		for _, a := range ans{
+			r := new(dns.CNAME)
+			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: 66}
+			cname := a.CNAME
+			if !strings.HasSuffix(cname, "."){
+				cname = cname + "."
+			}
+			r.Target = cname
+			answers = append(answers, r)
+		}
+		/*
+	case dns.TypeSOA:
+		
+		ans, _, err := resolver.LookupSOA(domain)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+
+		for _, a := range ans{
+			r := new(dns.SOA)
+			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: 66}
+			r.SOA = a
+			answers = append(answers, r)
+		}
+		*/
+	}
+
+	m.Answer = append(m.Answer, answers...)
+	fmt.Println(lcName, answers)
+	err := w.WriteMsg(m)
+	if err != nil {
+		log.Printf("Error writing msg %s\n", err)
+	}
 }
 
 func route(w dns.ResponseWriter, req *dns.Msg) {
@@ -190,6 +278,14 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 		}
 		return
 	}
+
+	log.Println(addr)
+	if strings.HasPrefix(addr, "https://") {
+		addr = strings.Replace(addr, "https://", "", 1)
+		lookupDoH(addr, w, req)
+		return
+	}
+
 	c := &dns.Client{Net: transport}
 	resp, _, err := c.Exchange(req, addr)
 	if err != nil {
@@ -199,6 +295,34 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 
 	w.WriteMsg(resp)
 	logRet(addr, req, resp)
+	logPDNS(addr, req, resp)
+}
+
+// passivedns style log
+// https://github.com/gamelinux/passivedns
+// #timestamp||dns-client ||dns-server||RR class||Query||Query Type||Answer||TTL||Count
+// 1322849924.408856||10.1.1.1||8.8.8.8||IN||upload.youtube.com.||A||74.125.43.117||46587||5
+type pdnsLog struct {
+	timestamp float64
+	dnsClient string
+	dnsServer string
+	rrClass   string
+	query     string
+	queryType string
+	answer    string
+	ttl       uint
+	count     uint
+}
+
+func (p *pdnsLog) String() string {
+	return ""
+}
+
+func logPDNS(addr string, req *dns.Msg, resp *dns.Msg) {
+	log := pdnsLog{
+		timestamp: float64(time.Now().UnixMilli()),
+	}
+	fmt.Println(log.String())
 }
 
 func logRet(addr string, req *dns.Msg, resp *dns.Msg) {
