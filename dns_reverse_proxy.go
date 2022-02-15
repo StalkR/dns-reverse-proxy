@@ -153,7 +153,7 @@ func main() {
 func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	q := req.Question[0]
 	lcName := strings.ToLower(q.Name)
-	fmt.Println("lcName", lcName, q.Qtype)
+	//fmt.Println("lcName", lcName, q.Qtype)
 	domain := strings.TrimSuffix(lcName, ".")
 
 	resolver := doh.Resolver{
@@ -237,7 +237,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	}
 
 	m.Answer = append(m.Answer, answers...)
-	fmt.Println(lcName, answers)
+	//fmt.Println(lcName, answers)
 	err := w.WriteMsg(m)
 	if err != nil {
 		log.Printf("Error writing msg %s\n", err)
