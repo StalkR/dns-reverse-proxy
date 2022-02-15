@@ -40,6 +40,38 @@ import (
 
 type flagStringList []string
 
+// passivedns style log
+// https://github.com/gamelinux/passivedns
+// #timestamp||dns-client ||dns-server||RR class||Query||Query Type||Answer||TTL||Count
+// 1322849924.408856||10.1.1.1||8.8.8.8||IN||upload.youtube.com.||A||74.125.43.117||46587||5
+type pdnsLog struct {
+	timestamp string
+	dnsClient string
+	dnsServer string
+	rrClass   string
+	query     string
+	queryType string
+	answer    string
+	ttl       string
+	count     string
+}
+
+func (p *pdnsLog) String() string {
+	arr := []string{
+		p.timestamp,
+		p.dnsClient,
+		p.dnsServer,
+		p.rrClass,
+		p.query,
+		p.queryType,
+		p.answer,
+		p.ttl,
+		p.count,
+	}
+	log := strings.Join(arr, "||")
+	return log
+}
+
 func (i *flagStringList) String() string {
 	return fmt.Sprint(*i)
 }
@@ -93,12 +125,11 @@ func main() {
 		}
 		routes[strings.ToLower(s[0])] = backends
 	}
-	//log.Println(routes)
 
 	udpServer := &dns.Server{Addr: *address, Net: "udp"}
 	tcpServer := &dns.Server{Addr: *address, Net: "tcp"}
 	dns.HandleFunc(".", route)
-	//dns.HandleFunc(".", routeDoH)
+
 	go func() {
 		if err := udpServer.ListenAndServe(); err != nil {
 			log.Fatal(err)
@@ -136,6 +167,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	m.Authoritative = true
 
 	var answers []dns.RR
+	hdr := dns.RR_Header{Name: lcName, Rrtype:q.Qtype, Class: dns.ClassINET}
 
 	switch q.Qtype {
 	case dns.TypeA:
@@ -147,7 +179,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 
 		for _, a := range ans{
 			r := new(dns.A)
-			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: q.Qtype, Class: dns.ClassINET}
+			r.Hdr = hdr
 			r.A = net.ParseIP(a.IP4)
 			answers = append(answers, r)
 		}
@@ -160,7 +192,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 
 		for _, a := range ans{
 			r := new(dns.AAAA)
-			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: q.Qtype, Class: dns.ClassINET}
+			r.Hdr = hdr
 			r.AAAA = net.ParseIP(a.IP6)
 			answers = append(answers, r)
 		}
@@ -173,7 +205,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 
 		for _, a := range ans{
 			r := new(dns.CNAME)
-			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: q.Qtype, Class: dns.ClassINET}
+			r.Hdr = hdr
 			cname := a.CNAME
 			if !strings.HasSuffix(cname, "."){
 				cname = cname + "."
@@ -181,7 +213,6 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 			r.Target = cname
 			answers = append(answers, r)
 		}
-		/*
 	case dns.TypeSOA:
 		
 		ans, _, err := resolver.LookupSOA(domain)
@@ -192,11 +223,17 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 
 		for _, a := range ans{
 			r := new(dns.SOA)
-			r.Hdr = dns.RR_Header{Name: lcName, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: 66}
-			r.SOA = a
+			r.Hdr = hdr
+			r.Ns = a.PrimaryNS
+			r.Mbox = a.RespMailbox
+			r.Serial = a.Serial
+			r.Refresh = uint32(a.Refresh)
+			r.Retry = uint32(a.Retry)
+			r.Expire = uint32(a.Expire)
+			r.Minttl = a.Minimum
+
 			answers = append(answers, r)
 		}
-		*/
 	}
 
 	m.Answer = append(m.Answer, answers...)
@@ -295,75 +332,35 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 	}
 
 	w.WriteMsg(resp)
-	//logRet(addr, req, resp)
-	//logPDNS(addr, req, resp, w)
-	go func() {
 
+	go func() {
+		
 		for _,r := range resp.Answer{
 			p := new(pdnsLog)
-
-			q := req.Question[0]
-			lcName := strings.ToLower(q.Name)
 
 			p.dnsClient = w.RemoteAddr().String()
 			p.timestamp = fmt.Sprintf("%f", float64(time.Now().UnixMicro()) / float64(1e6))
 			p.dnsServer = addr
-			p.query = lcName
-			p.queryType = dns.Type(q.Qtype).String()
 			p.ttl = fmt.Sprintf("%d", r.Header().Ttl)
+			p.rrClass = dns.Class(r.Header().Class).String()
+			p.count = "1" // what does the count means?
+			if rec, ok := r.(*dns.A); ok {
+				p.query = rec.Hdr.Name
+				p.queryType = dns.Type(rec.Hdr.Rrtype).String()
+				p.answer = rec.A.String()
+			}else if rec, ok := r.(*dns.AAAA); ok {
+				p.queryType = dns.Type(rec.Hdr.Rrtype).String()
+				p.query = rec.Hdr.Name
+				p.answer = rec.AAAA.String()
+			}else if rec, ok := r.(*dns.CNAME); ok {
+				p.queryType = dns.Type(rec.Hdr.Rrtype).String()
+				p.query = rec.Hdr.Name
+				p.answer = rec.Target
+			}
 
 			fmt.Println(p.String())
 		}
 	}()
 }
 
-// passivedns style log
-// https://github.com/gamelinux/passivedns
-// #timestamp||dns-client ||dns-server||RR class||Query||Query Type||Answer||TTL||Count
-// 1322849924.408856||10.1.1.1||8.8.8.8||IN||upload.youtube.com.||A||74.125.43.117||46587||5
-type pdnsLog struct {
-	timestamp string
-	dnsClient string
-	dnsServer string
-	rrClass   string
-	query     string
-	queryType string
-	answer    string
-	ttl       string
-	count     string
-}
-//var pdnsLogKeys = []string{"timestamp", "dnsClient", "dnsServer", "rrClass", "query", "queryType", "answer", "ttl", "count"}
 
-func (p *pdnsLog) String() string {
-	arr := []string{
-		p.timestamp,
-		p.dnsClient,
-		p.dnsServer,
-		p.rrClass,
-		p.query,
-		p.queryType,
-		p.answer,
-		p.ttl,
-		p.count,
-	}
-	log := strings.Join(arr, "||")
-	return log
-}
-
-func logPDNS(addr string, req *dns.Msg, resp *dns.Msg, w dns.ResponseWriter) {
-	p := new(pdnsLog)
-	p.dnsClient = w.RemoteAddr().String()
-	p.timestamp = fmt.Sprintf("%f", float64(time.Now().UnixMicro()) / float64(1e6))
-	p.dnsServer = addr
-	fmt.Println(p.String())
-}
-
-func logRet(addr string, req *dns.Msg, resp *dns.Msg) {
-	quest := req.Question[0]
-	fmt.Println("x--------------------------------------------------------")
-	fmt.Println(time.Now().Format(time.RFC3339), addr)
-	fmt.Println(quest.String())
-	fmt.Println(resp.String())
-	//fmt.Println("name: ", quest.Name, "type:", quest.Qtype, "str:", quest.String())
-
-}
