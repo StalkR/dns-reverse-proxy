@@ -85,13 +85,13 @@ var (
 	address = flag.String("address", ":53", "Address to listen to (TCP and UDP)")
 
 	defaultServer = flag.String("default", "",
-	"Default DNS server where to send queries if no route matched (host:port)")
+		"Default DNS server where to send queries if no route matched (host:port)")
 
 	routeLists flagStringList
 	routes     map[string][]string
 
 	allowTransfer = flag.String("allow-transfer", "",
-	"List of IPs allowed to transfer (AXFR/IXFR)")
+		"List of IPs allowed to transfer (AXFR/IXFR)")
 	transferIPs []string
 )
 
@@ -157,7 +157,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	domain := strings.TrimSuffix(lcName, ".")
 
 	resolver := doh.Resolver{
-		Host: addr,
+		Host:  addr,
 		Class: doh.IN,
 	}
 
@@ -167,7 +167,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 	m.Authoritative = true
 
 	var answers []dns.RR
-	hdr := dns.RR_Header{Name: lcName, Rrtype:q.Qtype, Class: dns.ClassINET}
+	hdr := dns.RR_Header{Name: lcName, Rrtype: q.Qtype, Class: dns.ClassINET}
 
 	switch q.Qtype {
 	case dns.TypeA:
@@ -177,7 +177,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 			break
 		}
 
-		for _, a := range ans{
+		for _, a := range ans {
 			r := new(dns.A)
 			r.Hdr = hdr
 			r.A = net.ParseIP(a.IP4)
@@ -190,7 +190,7 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 			break
 		}
 
-		for _, a := range ans{
+		for _, a := range ans {
 			r := new(dns.AAAA)
 			r.Hdr = hdr
 			r.AAAA = net.ParseIP(a.IP6)
@@ -203,25 +203,25 @@ func lookupDoH(addr string, w dns.ResponseWriter, req *dns.Msg) *dns.Msg {
 			break
 		}
 
-		for _, a := range ans{
+		for _, a := range ans {
 			r := new(dns.CNAME)
 			r.Hdr = hdr
 			cname := a.CNAME
-			if !strings.HasSuffix(cname, "."){
+			if !strings.HasSuffix(cname, ".") {
 				cname = cname + "."
 			}
 			r.Target = cname
 			answers = append(answers, r)
 		}
 	case dns.TypeSOA:
-		
+
 		ans, _, err := resolver.LookupSOA(domain)
 		if err != nil {
 			log.Println(err)
 			break
 		}
 
-		for _, a := range ans{
+		for _, a := range ans {
 			r := new(dns.SOA)
 			r.Hdr = hdr
 			r.Ns = a.PrimaryNS
@@ -320,7 +320,7 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 	if strings.HasPrefix(addr, "https://") {
 		addr = strings.Replace(addr, "https://", "", 1)
 		resp = lookupDoH(addr, w, req)
-	}else{
+	} else {
 		c := &dns.Client{Net: transport}
 		var _ time.Duration
 		var err error
@@ -334,12 +334,12 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 	w.WriteMsg(resp)
 
 	go func() {
-		
-		for _,r := range resp.Answer{
+
+		for _, r := range resp.Answer {
 			p := new(pdnsLog)
 
 			p.dnsClient = w.RemoteAddr().String()
-			p.timestamp = fmt.Sprintf("%f", float64(time.Now().UnixMicro()) / float64(1e6))
+			p.timestamp = fmt.Sprintf("%f", float64(time.Now().UnixMicro())/float64(1e6))
 			p.dnsServer = addr
 			p.ttl = fmt.Sprintf("%d", r.Header().Ttl)
 			p.rrClass = dns.Class(r.Header().Class).String()
@@ -348,11 +348,11 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 				p.query = rec.Hdr.Name
 				p.queryType = dns.Type(rec.Hdr.Rrtype).String()
 				p.answer = rec.A.String()
-			}else if rec, ok := r.(*dns.AAAA); ok {
+			} else if rec, ok := r.(*dns.AAAA); ok {
 				p.queryType = dns.Type(rec.Hdr.Rrtype).String()
 				p.query = rec.Hdr.Name
 				p.answer = rec.AAAA.String()
-			}else if rec, ok := r.(*dns.CNAME); ok {
+			} else if rec, ok := r.(*dns.CNAME); ok {
 				p.queryType = dns.Type(rec.Hdr.Rrtype).String()
 				p.query = rec.Hdr.Name
 				p.answer = rec.Target
@@ -362,5 +362,3 @@ func proxy(addr string, w dns.ResponseWriter, req *dns.Msg) {
 		}
 	}()
 }
-
-

@@ -14,10 +14,12 @@ Example:
     $ go run dns_reverse_proxy.go -address :53 \
         -default 8.8.8.8:53 \
         -route .example.com.=8.8.4.4:53 \
+	-route .example2.com.=8.8.4.4:53,1.1.1.1:53 \
+	-route .example3.com.=https://dns.alidns.com \
         -allow-transfer 1.2.3.4,::1
 
 A query for `example.net` or `example.com` will go to `8.8.8.8:53`, the default.
-However, a query for `subdomain.example.com` will go to `8.8.4.4:53`. `-default`
+However, a query for `subdomain.example.com` will go to `8.8.4.4:53`. `.example3.com` will go to `https://dns.alidns.com` use `DNS over HTTPS`. `-default`
 is optional - if it is not given then the server will return a failure for
 queries for domains where a route has not been given.
 
