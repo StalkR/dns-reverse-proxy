@@ -3,8 +3,8 @@
 [![Build Status][build-img]][build]
 [![Godoc][godoc-img]][godoc]
 
-[build]: https://travis-ci.org/StalkR/dns-reverse-proxy
-[build-img]: https://api.travis-ci.org/StalkR/dns-reverse-proxy.png?branch=master
+[build]: https://github.com/StalkR/dns-reverse-proxy/actions/workflows/build.yml
+[build-img]: https://github.com/StalkR/dns-reverse-proxy/actions/workflows/build.yml/badge.svg
 [godoc]: https://godoc.org/github.com/StalkR/dns-reverse-proxy
 [godoc-img]: https://godoc.org/github.com/StalkR/dns-reverse-proxy?status.png
 
