@@ -1,3 +1,6 @@
 #!/usr/bin/make -f
 %:
-	dh $@ 
+	dh $@
+
+# dwz fails on golang binaries because of compressed .debug_abbrev section
+override_dh_dwz:

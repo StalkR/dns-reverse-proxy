@@ -12,7 +12,6 @@
 # Author: StalkR <stalkr@stalkr.net>
 
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="DNS reverse proxy"
 NAME=dns-reverse-proxy
 DAEMON=/usr/bin/$NAME
 DAEMON_ARGS=""
@@ -81,7 +80,7 @@ do_stop()
 
 case "$1" in
   start)
-    [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
+    [ "$VERBOSE" != no ] && log_daemon_msg "Starting" "$NAME"
     do_start
     case "$?" in
 		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
@@ -89,7 +88,7 @@ case "$1" in
 	esac
   ;;
   stop)
-	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+	[ "$VERBOSE" != no ] && log_daemon_msg "Stopping" "$NAME"
 	do_stop
 	case "$?" in
 		0|1) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
@@ -100,7 +99,7 @@ case "$1" in
        status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
        ;;
   restart|force-reload)
-	log_daemon_msg "Restarting $DESC" "$NAME"
+	log_daemon_msg "Restarting" "$NAME"
 	do_stop
 	case "$?" in
 	  0|1)
